@@ -1,0 +1,20 @@
+* 単電源アナログ前段 (センサ -> 非反転アンプ -> ADC の手前まで)
+* 非反転アンプ: ゲイン G=1+Rf/Rg, 入力オフセット VOS, 出力は 0V/電源まで振れない(VLO/VHI)。
+* 出力段のソフトクランプで低電圧・高電圧の曲がりを表す。behavioral source による
+* 有限ゲイン＋Vos＋振れ切りの簡易マクロモデル。値は代表的な単電源オペアンプの目安。
+.param VOS=2m RF=10k RG=10k VLO=0.05 VHI=4.93 AOL=1e5 DELTA=1e-4
+
+Vsup vcc 0 5
+Vin  in 0 0
+Vos_src np in {VOS}
+Rf out nn {RF}
+Rg nn 0 {RG}
+Bcore core 0 V = AOL*(V(np)-V(nn))
+* soft-floor then soft-ceil (sqrt ソフトmax/min: exp オーバフロー回避)
+Bout out 0 V = 0.5*( (0.5*(V(core)+VLO+sqrt((V(core)-VLO)**2+DELTA))) + VHI - sqrt((VHI-(0.5*(V(core)+VLO+sqrt((V(core)-VLO)**2+DELTA))))**2+DELTA) )
+
+.control
+dc Vin 0 2.4 0.005
+wrdata afe.data v(out)
+.endc
+.end
