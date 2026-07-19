@@ -45,12 +45,22 @@ def _ng_ok():
     return shutil.which(NGSPICE) is not None or os.path.exists(NGSPICE)
 
 
+def _patch_params(src, **kv):
+    """.param 行の中だけで NAME=値 を差し替える。
+    ネットリスト他行（コメントや {VOS} などの参照）にある同名トークンには触らない。"""
+    out = []
+    for line in src.splitlines(keepends=True):
+        if re.match(r"\s*\.param\b", line, re.IGNORECASE):
+            for name, val in kv.items():
+                line = re.sub(rf"\b{name}=\S+", f"{name}={val}", line)
+        out.append(line)
+    return "".join(out)
+
+
 def afe_transfer(vos=2e-3, rf=10e3, rg=10e3):
     """spice/afe.cir を Vos・帰還抵抗を差し替えて実行し、(v_true, v_afe) を返す。"""
     src = open(AFE).read()
-    src = re.sub(r"VOS=\S+", f"VOS={vos}", src, count=1)
-    src = re.sub(r"RF=\S+", f"RF={rf}", src, count=1)
-    src = re.sub(r"RG=\S+", f"RG={rg}", src, count=1)
+    src = _patch_params(src, VOS=vos, RF=rf, RG=rg)
     tmp = os.path.join(HERE, "_afe_run.cir")
     open(tmp, "w").write(src)
     subprocess.run([NGSPICE, "-b", tmp], cwd=HERE, check=True,
@@ -91,7 +101,11 @@ def calibrate(v_true, v_adc, level):
     if level == "poly3":
         return np.polyval(np.polyfit(x, y, 3), v_adc)
     if level == "piecewise":
-        return np.interp(v_adc, x, y)
+        est = np.interp(v_adc, x, y)
+        # np.interp は範囲外を端点にクランプする。較正点の外側は外挿になって信用できないので、
+        # NaN にして「較正範囲の外」を隠さず出す（評価は使用レンジ＝較正点の内側で行う）。
+        est[(v_adc < x[0]) | (v_adc > x[-1])] = np.nan
+        return est
     raise ValueError(level)
 
 

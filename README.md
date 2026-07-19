@@ -4,6 +4,8 @@
 前段のアンプは ngspice で解き（`spice/afe.cir`）、そこに ADC の量子化と INL を足して、
 「精度の基準電圧を"正"として突き合わせる」較正を、はしごの各段で当てて残差を見る。
 
+解説記事: <https://zenn.dev/logicia32/articles/2026-07-17-adc-calibration>
+
 ## 何を見るか
 
 - **前段の伝達（`transfer.png`）** … 単電源アンプは出力が 0V まで振れず、低電圧で伝達が曲がる。
